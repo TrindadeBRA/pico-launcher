@@ -51,6 +51,13 @@ public:
 
     virtual const FileInfo& GetTriggerFileInfo() const override { return _triggerFileInfo; }
 
+    const char* GetThemeName() const override
+    {
+        return _appSettingsService->GetAppSettings().theme;
+    }
+
+    void SetThemeName(const char* themeName) override;
+
 private:
     IAppSettingsService* _appSettingsService;
     TaskQueueBase* _ioTaskQueue;

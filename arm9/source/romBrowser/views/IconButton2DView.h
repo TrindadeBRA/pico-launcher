@@ -20,6 +20,7 @@ public:
     };
 
     void Draw(GraphicsContext& graphicsContext) override;
+    void SetIconHFlip(bool flip) { _iconHFlip = flip; }
 
     void SetGraphics(const VramToken& vramToken)
     {
@@ -29,6 +30,7 @@ public:
     static VramToken UploadGraphics(IVramManager& vramManager);
 
 private:
+    bool _iconHFlip = false;
     u32 _selectorVramOffset;
 
     IconButton2DView(Type type, State state,

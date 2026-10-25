@@ -41,6 +41,9 @@ public:
     virtual void SetRomBrowserDisplaySettings(
         const RomBrowserDisplaySettings& romBrowserDisplaySettings) = 0;
 
+    virtual const char* GetThemeName() const = 0;
+    virtual void SetThemeName(const char* themeName) = 0;
+
     virtual const FileInfo& GetTriggerFileInfo() const = 0;
 };
 
