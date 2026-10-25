@@ -47,7 +47,7 @@ App::App(IAppSettingsService& appSettingsService, IBgmService& bgmService)
     , _inputRepeater(&_inputProvider,
         InputKey::DpadLeft | InputKey::DpadRight | InputKey::DpadUp | InputKey::DpadDown | InputKey::L | InputKey::R,
         25, 8)
-    , _romBrowserController(&appSettingsService, &_ioTaskQueue, &_bgTaskQueue)
+    , _romBrowserController(&appSettingsService, &_ioTaskQueue, &_bgTaskQueue, &bgmService)
     , _displaySettingsBottomSheetViewModel(&_romBrowserController)
     , _romBrowserBottomScreenViewModel(&_romBrowserController)
     , _dialogPresenter(&_focusManager, &_mainObjDialogVram) { }
@@ -125,6 +125,7 @@ void App::Run()
     _dialogPresenter.InitVram();
 
     LoadTheme();
+    _romBrowserController.InitializeFavorites();
 
     _ioTaskQueue.StartThread(1, _ioTaskThreadStack, sizeof(_ioTaskThreadStack));
     _bgTaskQueue.StartThread(2, _bgTaskThreadStack, sizeof(_bgTaskThreadStack));
@@ -184,6 +185,9 @@ void App::Run()
 
     MainLoop();
 
+    // Finish I/O before controller state or the audio player can be destroyed.
+    _ioTaskQueue.StopThread();
+    _bgTaskQueue.StopThread();
     _bgmService.StopBgm();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);

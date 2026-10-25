@@ -17,12 +17,17 @@ public:
         if (this != &rhs)
         {
             _name = std::move(rhs._name);
+            _absolutePath = std::move(rhs._absolutePath);
+            _attributes = rhs._attributes;
             _type = rhs._type;
             _fastFileRef = rhs._fastFileRef;
         }
 
         return *this;
     }
+
+    void SetAbsolutePath(const char* path);
+    const char* GetAbsolutePath() const { return _absolutePath.get(); }
 
     const TCHAR* GetFileName() const { return _name.get(); }
     const FileType* GetFileType() const { return _type; }
@@ -41,6 +46,7 @@ public:
 
 private:
     std::unique_ptr<TCHAR[]> _name;
+    std::unique_ptr<char[]> _absolutePath;
     const FileType* _type;
     FastFileRef _fastFileRef;
     u8 _attributes;

@@ -25,6 +25,17 @@ public:
     virtual void ShowDisplaySettings() = 0;
     virtual void HideDisplaySettings() = 0;
     virtual void GotoSettingsScreen() = 0;
+    virtual void ToggleFavorite(const FileInfo& file) = 0;
+    virtual bool IsFavorite(const FileInfo& file) const = 0;
+    virtual void ToggleFavoritesView() = 0;
+    virtual bool IsFavoritesView() const = 0;
+    virtual const char* GetFavoriteNotice() const = 0;
+    virtual bool IsMusicEnabled() const = 0;
+    virtual unsigned GetMusicVolume() const = 0;
+    virtual void ToggleMusic() = 0;
+    virtual void ChangeMusicVolume(int amount) = 0;
+    virtual void NextMusic() = 0;
+    virtual const char* GetMusicNotice() const = 0;
 
     virtual void Update() = 0;
 

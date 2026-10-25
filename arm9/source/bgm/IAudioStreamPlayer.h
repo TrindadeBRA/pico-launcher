@@ -15,6 +15,7 @@ public:
 
     /// @brief Stops playback of the currently playing audio stream.
     virtual void StopPlayback() = 0;
+    virtual void SetVolume(unsigned percent) = 0;
 };
 
 inline IAudioStreamPlayer::~IAudioStreamPlayer() { }

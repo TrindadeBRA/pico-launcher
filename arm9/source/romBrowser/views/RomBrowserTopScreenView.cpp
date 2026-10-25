@@ -23,6 +23,12 @@ RomBrowserTopScreenView::RomBrowserTopScreenView(
     , _coverPosition(romBrowserViewFactory->GetTopCoverPosition())
 {
     AddChildTail(_fileInfoView.GetPointer());
+    if (_viewModel->GetRomBrowserController()->IsFavoritesView()
+        && _viewModel->GetFileInfoManager().GetItemCount() == 0)
+    {
+        _fileInfoView->SetGameTitleAsync(nullptr, u"Nenhum favorito disponivel");
+        _fileInfoView->SetFileNameAsync(nullptr, "Volte com B; use X para favoritar", false);
+    }
 }
 
 void RomBrowserTopScreenView::InitVram(const VramContext& vramContext)
@@ -79,6 +85,8 @@ void RomBrowserTopScreenView::Update()
             _fileInfoView->SetIcon(std::move(_selectedFileIcon));
             _fileInfoView->SetFileNameAsync(_viewModel->GetBgTaskQueue(), item.GetFileName(), fileNameAsTitle);
 
+            _lastFavorite = false;
+            _lastFavoriteNotice = "";
             _lastSelectedItem = selectedItem;
 
             auto cover = fileInfoManager.GetFileCover(selectedItem);
@@ -87,6 +95,22 @@ void RomBrowserTopScreenView::Update()
                 _selectedFileCover = std::move(cover);
                 _coverGraphicsUploaded = false;
             }
+        }
+    }
+    if (selectedItem >= 0 && selectedItem == _lastSelectedItem)
+    {
+        auto controller = _viewModel->GetRomBrowserController();
+        const auto& item = _viewModel->GetFileInfoManager().GetItem(selectedItem);
+        const bool favorite = controller->IsFavorite(item);
+        const char* notice = controller->GetFavoriteNotice();
+        if (favorite != _lastFavorite || strcmp(notice, _lastFavoriteNotice) != 0)
+        {
+            _lastFavorite = favorite;
+            _lastFavoriteNotice = notice;
+            std::string name = notice[0] ? std::string("[") + notice + "] "
+                                        : favorite ? "[Favorito] " : "";
+            name += item.GetFileName();
+            _fileInfoView->SetFileNameAsync(_viewModel->GetBgTaskQueue(), name.c_str(), false);
         }
     }
     ViewContainer::Update();

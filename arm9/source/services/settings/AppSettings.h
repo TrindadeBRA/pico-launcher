@@ -11,6 +11,8 @@ public:
     String<char, 64> theme = "material";
     String<char, 256> lastUsedFilePath = "";
     RomBrowserDisplaySettings romBrowserDisplaySettings;
+    bool musicEnabled = true;
+    unsigned musicVolume = 100;
 
     std::unique_ptr<FileAssociation[]> fileAssociations;
     u32 numberOfFileAssociations = 0;

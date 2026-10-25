@@ -12,6 +12,7 @@ class RomBrowserAppBarView : public ViewContainer
 
 public:
     void InitVram(const VramContext& vramContext) override;
+    void Update() override;
 
     Rectangle GetBounds() const override
     {
@@ -32,7 +33,7 @@ private:
 
         APP_BAR_BUTTON_DISPLAY_SETTINGS,
         // APP_BAR_BUTTON_RECENT,
-        // APP_BAR_BUTTON_FAVORITE,
+        APP_BAR_BUTTON_FAVORITE,
         // APP_BAR_BUTTON_SETTINGS
     };
 

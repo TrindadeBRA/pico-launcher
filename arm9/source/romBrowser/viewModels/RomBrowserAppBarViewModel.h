@@ -13,6 +13,9 @@ public:
         _romBrowserController->NavigateUp();
     }
 
+    void ToggleFavoritesView() { _romBrowserController->ToggleFavoritesView(); }
+    bool IsFavoritesView() const { return _romBrowserController->IsFavoritesView(); }
+
     void ShowDisplaySettings()
     {
         _romBrowserController->ShowDisplaySettings();
