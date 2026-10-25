@@ -35,23 +35,17 @@ private:
     DisplaySettingsViewModel* _viewModel;
 
     SharedPtr<Label2DView> _titleLabel;
+    SharedPtr<IconButton2DView> _themeButton;
     SharedPtr<Label2DView> _layoutLabel;
     SharedPtr<Label2DView> _sortingLabel;
-    SharedPtr<Label2DView> _themeNameLabel;
-    SharedPtr<Label2DView> _themeHintLabel;
-    std::array<SharedPtr<IconButton2DView>, 2> _themeOptions;
-    void UpdateThemeName();
-    // LabelView _filtersLabel;
 
     std::array<SharedPtr<IconButton2DView>, 4> _layoutOptions;
     std::array<SharedPtr<IconButton2DView>, /*3*/2> _sortOptions;
-    // std::array<IconButton2DView, 5> _filterOptions;
 
     const MaterialColorScheme* _materialColorScheme;
 
     SharedPtr<IconButton2DView> CreateLayoutOptionIconButton();
     SharedPtr<IconButton2DView> CreateSortOptionIconButton();
-    // IconButton2DView CreateFilterOptionIconButton();
 
     DisplaySettingsBottomSheetView(DisplaySettingsViewModel* viewModel,
         const MaterialColorScheme* materialColorScheme, const IFontRepository* fontRepository);

@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 #include "../IRomBrowserController.h"
 #include "services/settings/RomBrowserDisplaySettings.h"
 
@@ -39,18 +38,17 @@ public:
         }
     }
 
-    void RefreshThemes();
-    void CycleTheme(int direction);
-    const char* GetThemeName() const { return _romBrowserController->GetThemeName(); }
-    bool HasThemes() const { return !_themeNames.empty(); }
-
     void Close()
     {
         _romBrowserController->HideDisplaySettings();
     }
 
+    void GotoSettingsScreen()
+    {
+        _romBrowserController->GotoSettingsScreen();
+    }
+
 private:
-    std::vector<String<char, 64>> _themeNames;
     IRomBrowserController* _romBrowserController;
     RomBrowserDisplaySettings _romBrowserDisplaySettings;
 };

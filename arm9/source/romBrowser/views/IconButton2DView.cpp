@@ -72,7 +72,6 @@ void IconButton2DView::Draw(GraphicsContext& graphicsContext)
     OamBuilder::OamWithSize<16, 16>(
             _position.x + 8,
             _position.y + 8, _iconVramOffset >> 7)
-        .WithHFlip(_iconHFlip)
         .WithPalette16(iconPaletteRow)
         .WithPriority(graphicsContext.GetPriority())
         .Build(iconOam[0]);

@@ -1,5 +1,4 @@
 #include "common.h"
-#include <algorithm>
 #include "gui/GraphicsContext.h"
 #include "gui/VramContext.h"
 #include "gui/IVramManager.h"
@@ -16,7 +15,7 @@
 #include "moviesIcon.h"
 #include "unknownIcon.h"
 #include "coverflowIcon.h"
-#include "backIcon.h"
+#include "themeIcon.h"
 #include "../IRomBrowserController.h"
 #include "gui/input/InputProvider.h"
 #include "themes/material/MaterialColorScheme.h"
@@ -25,6 +24,9 @@
 
 #define TITLE_LABEL_X       20
 #define TITLE_LABEL_Y       16
+
+#define THEME_BUTTON_X      212
+#define THEME_BUTTON_Y      (TITLE_LABEL_Y - 7)
 
 #define LAYOUT_LABEL_X      20
 #define LAYOUT_LABEL_Y      46
@@ -55,41 +57,28 @@ DisplaySettingsBottomSheetView::DisplaySettingsBottomSheetView(
     const IFontRepository* fontRepository)
     : _viewModel(viewModel)
     , _titleLabel(Label2DView::CreateShared(128, 16, 25, fontRepository->GetFont(FontType::Medium11)))
+    , _themeButton(IconButton2DView::CreateShared(
+        IconButtonView::Type::Standard,
+        IconButtonView::State::NoToggle,
+        md::sys::color::inverseOnSurface,
+        materialColorScheme))
     , _layoutLabel(Label2DView::CreateShared(64, 16, 25, fontRepository->GetFont(FontType::Regular10)))
     , _sortingLabel(Label2DView::CreateShared(64, 16, 25, fontRepository->GetFont(FontType::Regular10)))
-    , _themeNameLabel(Label2DView::CreateShared(152, 16, 64, fontRepository->GetFont(FontType::Regular10)))
-    , _themeHintLabel(Label2DView::CreateShared(224, 16, 64, fontRepository->GetFont(FontType::Regular10)))
     , _materialColorScheme(materialColorScheme)
-    // , _filtersLabel(64, 16, 25, fontRepository->GetFont(FontType::Regular10))
 {
-    _viewModel->RefreshThemes();
-    _themeNameLabel->SetEllipsisStyle(LabelView::EllipsisStyle::Marquee);
-    AddChildTail(_themeNameLabel.GetPointer());
-    _themeHintLabel->SetText(u"Tema: B salva; reinicie o menu");
-    AddChildTail(_themeHintLabel.GetPointer());
-    for (unsigned i = 0; i < _themeOptions.size(); ++i)
-    {
-        auto& button = _themeOptions[i];
-        button = IconButton2DView::CreateShared(IconButtonView::Type::Tonal,
-            IconButtonView::State::NoToggle, md::sys::color::surfaceContainerLow, _materialColorScheme);
-        button->SetIconHFlip(i == 1);
-        button->SetAction([](IconButtonView* sender, void* arg)
-        {
-            auto self = static_cast<DisplaySettingsBottomSheetView*>(arg);
-            self->_viewModel->CycleTheme(sender == self->_themeOptions[0].GetPointer() ? -1 : 1);
-            self->UpdateThemeName();
-        }, this);
-        AddChildTail(button.GetPointer());
-    }
-    UpdateThemeName();
     _titleLabel->SetText(u"Display Settings");
     AddChildTail(_titleLabel.GetPointer());
+
+    _themeButton->SetAction([] (IconButtonView*, void* arg)
+    {
+        ((DisplaySettingsBottomSheetView*)arg)->_viewModel->GotoSettingsScreen();
+    }, this);
+    AddChildTail(_themeButton.GetPointer());
+
     _layoutLabel->SetText(u"Layout");
     AddChildTail(_layoutLabel.GetPointer());
     _sortingLabel->SetText(u"Sorting");
     AddChildTail(_sortingLabel.GetPointer());
-    // _filtersLabel.SetText(u"Filters");
-    // AddChildTail(&_filtersLabel);
 
     for (auto& layoutOption : _layoutOptions)
     {
@@ -102,14 +91,6 @@ DisplaySettingsBottomSheetView::DisplaySettingsBottomSheetView(
         sortOption = CreateSortOptionIconButton();
         AddChildTail(sortOption.GetPointer());
     }
-
-    // for (auto& filterOption : _filterOptions)
-    // {
-    //     filterOption = CreateFilterOptionIconButton();
-    //     AddChildTail(&filterOption);
-    // }
-
-    // _filterOptions[0].SetState(IconButtonView::State::ToggleSelected);
 }
 
 SharedPtr<IconButton2DView> DisplaySettingsBottomSheetView::CreateLayoutOptionIconButton()
@@ -158,18 +139,6 @@ SharedPtr<IconButton2DView> DisplaySettingsBottomSheetView::CreateSortOptionIcon
     return sortOption;
 }
 
-// IconButtonView DisplaySettingsBottomSheetView::CreateFilterOptionIconButton()
-// {
-//     IconButtonView filterOption
-//     {
-//         IconButtonView::Type::Tonal,
-//         IconButtonView::State::ToggleUnselected,
-//         md::sys::color::surfaceContainerLow,
-//         _materialColorScheme
-//     };
-//     return filterOption;
-// }
-
 void DisplaySettingsBottomSheetView::InitVram(const VramContext& vramContext)
 {
     BottomSheetView::InitVram(vramContext);
@@ -177,37 +146,18 @@ void DisplaySettingsBottomSheetView::InitVram(const VramContext& vramContext)
     const auto objVramManager = vramContext.GetObjVramManager();
     if (objVramManager)
     {
+        _themeButton->SetIconVramOffset(LoadIcon(*objVramManager, themeIconTiles, themeIconTilesLen));
+
         // layout options
         _layoutOptions[0]->SetIconVramOffset(LoadIcon(*objVramManager, hGridIconTiles, hGridIconTilesLen));
         _layoutOptions[1]->SetIconVramOffset(LoadIcon(*objVramManager, vGridIconTiles, vGridIconTilesLen));
         _layoutOptions[2]->SetIconVramOffset(LoadIcon(*objVramManager, bannerListIconTiles, bannerListIconTilesLen));
         _layoutOptions[3]->SetIconVramOffset(LoadIcon(*objVramManager, coverflowIconTiles, coverflowIconTilesLen));
 
-        auto arrow = LoadIcon(*objVramManager, backIconTiles, backIconTilesLen);
-        for (auto& button : _themeOptions)
-            button->SetIconVramOffset(arrow);
-
         // sort options
         _sortOptions[0]->SetIconVramOffset(LoadIcon(*objVramManager, sortNameAscendingIconTiles, sortNameAscendingIconTilesLen));
         _sortOptions[1]->SetIconVramOffset(LoadIcon(*objVramManager, sortNameDescendingIconTiles, sortNameDescendingIconTilesLen));
-        // _sortOptions[2].SetIconVramOffset(LoadIcon(objVramManager, recentIconTiles, recentIconTilesLen));
-
-        // filter options
-        // _filterOptions[0].SetIconVramOffset(LoadIcon(objVramManager, gamesIconTiles, gamesIconTilesLen));
-        // _filterOptions[1].SetIconVramOffset(LoadIcon(objVramManager, picturesIconTiles, picturesIconTilesLen));
-        // _filterOptions[2].SetIconVramOffset(LoadIcon(objVramManager, musicIconTiles, musicIconTilesLen));
-        // _filterOptions[3].SetIconVramOffset(LoadIcon(objVramManager, moviesIconTiles, moviesIconTilesLen));
-        // _filterOptions[4].SetIconVramOffset(LoadIcon(objVramManager, unknownIconTiles, unknownIconTilesLen));
     }
-}
-
-void DisplaySettingsBottomSheetView::UpdateThemeName()
-{
-    const char* theme = _viewModel->GetThemeName();
-    if (!_viewModel->HasThemes())
-        _themeNameLabel->SetText(u"Nenhum tema encontrado");
-    else
-        _themeNameLabel->SetText(theme);
 }
 
 void DisplaySettingsBottomSheetView::UpdateLabels()
@@ -215,15 +165,12 @@ void DisplaySettingsBottomSheetView::UpdateLabels()
     _titleLabel->SetPosition(TITLE_LABEL_X, _position.y + TITLE_LABEL_Y);
     _layoutLabel->SetPosition(LAYOUT_LABEL_X, _position.y + LAYOUT_LABEL_Y);
     _sortingLabel->SetPosition(SORTING_LABEL_X, _position.y + SORTING_LABEL_Y);
-    _themeNameLabel->SetPosition(54, _position.y + 110);
-    _themeHintLabel->SetPosition(20, _position.y + 140);
-    _themeOptions[0]->SetPosition(18, _position.y + 102);
-    _themeOptions[1]->SetPosition(210, _position.y + 102);
 }
 
 void DisplaySettingsBottomSheetView::Update()
 {
     BottomSheetView::Update();
+    _themeButton->SetPosition(THEME_BUTTON_X, _position.y + THEME_BUTTON_Y);
     UpdateLabels();
     auto selectedDisplayMode = _viewModel->GetRomBrowserDisplayMode();
     int x = 70;
@@ -249,12 +196,6 @@ void DisplaySettingsBottomSheetView::Update()
         x += 32;
         idx++;
     }
-    // x = 70;
-    // for (auto& filterOption : _filterOptions)
-    // {
-    //     filterOption.SetPosition(x, _position.y + 102);
-    //     x += 32;
-    // }
 }
 
 void DisplaySettingsBottomSheetView::Draw(GraphicsContext& graphicsContext)
@@ -268,12 +209,6 @@ void DisplaySettingsBottomSheetView::Draw(GraphicsContext& graphicsContext)
         _layoutLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
         _sortingLabel->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
         _sortingLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
-        _themeNameLabel->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
-        _themeNameLabel->SetForegroundColor(_materialColorScheme->onSurface);
-        _themeHintLabel->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
-        _themeHintLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
-        // _filtersLabel.SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
-        // _filtersLabel.SetForegroundColor(_materialColorScheme->onSurfaceVariant);
         BottomSheetView::Draw(graphicsContext);
     }
     graphicsContext.SetPriority(oldPrio);
@@ -294,23 +229,73 @@ bool DisplaySettingsBottomSheetView::HandleInput(
 SharedPtr<View> DisplaySettingsBottomSheetView::MoveFocus(const SharedPtr<View>& currentFocus,
     FocusMoveDirection direction, View* source)
 {
-    const SharedPtr<IconButton2DView>* rows[] = {
-        _layoutOptions.data(), _sortOptions.data(), _themeOptions.data()
-    };
-    const int counts[] = {4, 2, 2};
-    for (int row = 0; row < 3; ++row)
+    if (currentFocus.GetPointer() == _themeButton.GetPointer())
     {
-        for (int col = 0; col < counts[row]; ++col)
+        if (direction == FocusMoveDirection::Down)
         {
-            if (currentFocus.GetPointer() != rows[row][col].GetPointer())
-                continue;
-            if (direction == FocusMoveDirection::Left)
-                return rows[row][(col + counts[row] - 1) % counts[row]];
-            if (direction == FocusMoveDirection::Right)
-                return rows[row][(col + 1) % counts[row]];
-            const int nextRow = (row + (direction == FocusMoveDirection::Up ? 2 : 1)) % 3;
-            return rows[nextRow][std::min(col, counts[nextRow] - 1)];
+            return _layoutOptions[0];
         }
+        else
+        {
+            return nullptr;
+        }
+    }
+
+    int idx = 0;
+    for (auto& layoutOption : _layoutOptions)
+    {
+        if (currentFocus.GetPointer() == layoutOption.GetPointer())
+        {
+            if (direction == FocusMoveDirection::Left)
+            {
+                if (--idx < 0)
+                    idx += _layoutOptions.size();
+                return _layoutOptions[idx];
+            }
+            else if (direction == FocusMoveDirection::Right)
+            {
+                if (++idx >= (int)_layoutOptions.size())
+                    idx = 0;
+                return _layoutOptions[idx];
+            }
+            else if (direction == FocusMoveDirection::Up)
+            {
+                return _themeButton;
+            }
+            else //if (direction == FocusMoveDirection::Down)
+            {
+                if (idx >= (int)_sortOptions.size())
+                    idx = _sortOptions.size() - 1;
+                return _sortOptions[idx];
+            }
+        }
+        idx++;
+    }
+    idx = 0;
+    for (auto& sortOption : _sortOptions)
+    {
+        if (currentFocus.GetPointer() == sortOption.GetPointer())
+        {
+            if (direction == FocusMoveDirection::Left)
+            {
+                if (--idx < 0)
+                    idx += _sortOptions.size();
+                return _sortOptions[idx];
+            }
+            else if (direction == FocusMoveDirection::Right)
+            {
+                if (++idx >= (int)_sortOptions.size())
+                    idx = 0;
+                return _sortOptions[idx];
+            }
+            else if (direction == FocusMoveDirection::Up)
+            {
+                if (idx >= (int)_layoutOptions.size())
+                    idx = _layoutOptions.size() - 1;
+                return _layoutOptions[idx];
+            }
+        }
+        idx++;
     }
     return nullptr;
 }
@@ -318,6 +303,7 @@ SharedPtr<View> DisplaySettingsBottomSheetView::MoveFocus(const SharedPtr<View>&
 void DisplaySettingsBottomSheetView::SetGraphics(
     const IconButton2DView::VramToken& iconButtonVramToken)
 {
+    _themeButton->SetGraphics(iconButtonVramToken);
     for (auto& layoutOption : _layoutOptions)
     {
         layoutOption->SetGraphics(iconButtonVramToken);
@@ -326,8 +312,6 @@ void DisplaySettingsBottomSheetView::SetGraphics(
     {
         sortOption->SetGraphics(iconButtonVramToken);
     }
-    for (auto& button : _themeOptions)
-        button->SetGraphics(iconButtonVramToken);
 }
 
 void DisplaySettingsBottomSheetView::Close()
