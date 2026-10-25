@@ -2,6 +2,7 @@
 #include <memory>
 #include "json/ArduinoJson.h"
 #include "AppSettings.h"
+#include "bgm/AudioVolume.h"
 #include "fat/File.h"
 #include "JsonAppSettingsSerializer.h"
 
@@ -128,6 +129,8 @@ static std::unique_ptr<u8[]> writeJson(const AppSettings* appSettings, u32& leng
     json[KEY_ROM_BROWSER_LAYOUT] = serializeRomBrowserLayout(appSettings->romBrowserDisplaySettings.layout);
     json[KEY_ROM_BROWSER_SORT_MODE] = serializeRomBrowserSortMode(appSettings->romBrowserDisplaySettings.sortMode);
     json[KEY_THEME] = appSettings->theme.GetString();
+    json["musicEnabled"] = appSettings->musicEnabled;
+    json["musicVolume"] = appSettings->musicVolume;
     json[KEY_LAST_USED_FILE_PATH] = appSettings->lastUsedFilePath.GetString();
     serializeFileAssociations(json, appSettings);
 
@@ -166,6 +169,9 @@ static void readJson(AppSettings* appSettings, const JsonDocument& json)
 {
     appSettings->language = json[KEY_LANGUAGE] | appSettings->language.GetString();
     appSettings->theme = json[KEY_THEME] | appSettings->theme.GetString();
+    appSettings->musicEnabled = json["musicEnabled"] | true;
+    int volume = json["musicVolume"] | 100;
+    appSettings->musicVolume = ClampMusicVolume(volume);
     appSettings->lastUsedFilePath = json[KEY_LAST_USED_FILE_PATH] | appSettings->lastUsedFilePath.GetString();
 
     RomBrowserLayout romBrowserLayout;

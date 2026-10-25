@@ -12,17 +12,18 @@
 #include "FileType/ExtensionFileTypeProvider.h"
 #include "services/settings/IAppSettingsService.h"
 #include "cheats/ICheatRepository.h"
+#include "services/favorites/FavoritesRepository.h"
+#include "bgm/IBgmService.h"
 
 class RomBrowserController : public IRomBrowserController
 {
 public:
     RomBrowserController(IAppSettingsService* appSettingsService,
-        TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue);
+        TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue, IBgmService* bgmService);
 
-    void NavigateUp() override
-    {
-        NavigateToPath("..");
-    }
+    void InitializeFavorites() { _favorites.Load(); }
+
+    void NavigateUp() override;
 
     void NavigateToPath(const TCHAR* name) override;
     void LaunchFile(const FileInfo& fileInfo) override;
@@ -56,7 +57,29 @@ public:
 
     virtual const FileInfo& GetTriggerFileInfo() const override { return _triggerFileInfo; }
 
+    void ToggleFavorite(const FileInfo& file) override;
+    bool IsFavorite(const FileInfo& file) const override;
+    void ToggleFavoritesView() override;
+    bool IsFavoritesView() const override { return _favoritesOnly; }
+    const char* GetFavoriteNotice() const override { return _favoriteNotice; }
+    bool IsMusicEnabled() const override { return _appSettingsService->GetAppSettings().musicEnabled; }
+    unsigned GetMusicVolume() const override { return _appSettingsService->GetAppSettings().musicVolume; }
+    void ToggleMusic() override;
+    void ChangeMusicVolume(int amount) override;
+    void NextMusic() override;
+    const char* GetMusicNotice() const override { return _musicNotice; }
+
 private:
+    FavoritesRepository _favorites;
+    bool _favoritesOnly = false;
+    IBgmService* _bgmService;
+    String<char, 64> _favoriteNotice;
+    String<char, 64> _musicNotice;
+    QueueTask<void> _musicTask;
+    bool _musicTaskPending = false;
+    bool _musicTaskSuccess = false;
+    void QueueMusicChange(bool next);
+    std::string GetFilePath(const FileInfo& file) const;
     IAppSettingsService* _appSettingsService;
     TaskQueueBase* _ioTaskQueue;
     TaskQueueBase* _bgTaskQueue;

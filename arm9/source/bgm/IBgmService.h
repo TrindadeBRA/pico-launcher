@@ -13,10 +13,12 @@ public:
     virtual bool StartBgm(const TCHAR* filePath) = 0;
 
     /// @brief Starts playback of the background music according to the app config.
-    virtual void StartBgmFromConfig() = 0;
+    virtual bool StartBgmFromConfig() = 0;
 
     /// @brief If currently playing, stops playback.
     virtual void StopBgm() = 0;
+    virtual void SetVolume(unsigned percent) = 0;
+    virtual bool NextBgm() = 0;
 };
 
 inline IBgmService::~IBgmService() { }

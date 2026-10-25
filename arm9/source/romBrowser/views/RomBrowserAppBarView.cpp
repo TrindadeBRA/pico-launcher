@@ -20,8 +20,12 @@ RomBrowserAppBarView::RomBrowserAppBarView(
     const IRomBrowserViewFactory* romBrowserViewFactory)
     : _viewModel(viewModel)
 {
-    _appBarView = displayMode.CreateAppBarView(romBrowserViewFactory, 1, 1);
+    _appBarView = displayMode.CreateAppBarView(romBrowserViewFactory, 1, 2);
     AddChildTail(_appBarView.GetPointer());
+    _appBarView->SetButtonAction(APP_BAR_BUTTON_FAVORITE, [](IconButtonView*, void* arg)
+    {
+        static_cast<RomBrowserAppBarViewModel*>(arg)->ToggleFavoritesView();
+    }, _viewModel);
 
     _appBarView->SetButtonAction(APP_BAR_BUTTON_BACK, [] (IconButtonView* sender, void* arg)
     {
@@ -52,9 +56,9 @@ void RomBrowserAppBarView::InitVram(const VramContext& vramContext)
         // dma_ntrCopy32(3, settingsIconTiles, objVramManager->GetVramAddress(settingsIconVramOffset), settingsIconTilesLen);
         // _appBarView->SetButtonIcon(APP_BAR_BUTTON_SETTINGS, settingsIconVramOffset);
 
-        // u32 heartIconVramOffset = objVramManager->Alloc(heartIconTilesLen);
-        // dma_ntrCopy32(3, heartIconTiles, objVramManager->GetVramAddress(heartIconVramOffset), heartIconTilesLen);
-        // _appBarView->SetButtonIcon(APP_BAR_BUTTON_FAVORITE, heartIconVramOffset);
+        u32 heartIconVramOffset = objVramManager->Alloc(heartIconTilesLen);
+        dma_ntrCopy32(3, heartIconTiles, objVramManager->GetVramAddress(heartIconVramOffset), heartIconTilesLen);
+        _appBarView->SetButtonIcon(APP_BAR_BUTTON_FAVORITE, heartIconVramOffset);
 
         // u32 recentIconVramOffset = objVramManager->Alloc(recentIconTilesLen);
         // dma_ntrCopy32(3, recentIconTiles, objVramManager->GetVramAddress(recentIconVramOffset), recentIconTilesLen);
@@ -114,4 +118,11 @@ SharedPtr<View> RomBrowserAppBarView::MoveFocus(const SharedPtr<View>& currentFo
         return _appBarView->MoveFocus(currentFocus, direction, this);
     }
     return nullptr;
+}
+
+void RomBrowserAppBarView::Update()
+{
+    _appBarView->SetButtonState(APP_BAR_BUTTON_FAVORITE, _viewModel->IsFavoritesView()
+        ? IconButtonView::State::ToggleSelected : IconButtonView::State::ToggleUnselected);
+    ViewContainer::Update();
 }

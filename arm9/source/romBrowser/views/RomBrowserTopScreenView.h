@@ -30,6 +30,8 @@ private:
     std::unique_ptr<FileIcon> _selectedFileIcon;
     SharedPtr<FileCover> _selectedFileCover;
     int _lastSelectedItem = -1;
+    bool _lastFavorite = false;
+    String<char, 64> _lastFavoriteNotice;
     bool _iconGraphicsUploaded = false;
     bool _coverGraphicsUploaded = false;
     bool _showCover;

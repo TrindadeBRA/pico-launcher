@@ -25,6 +25,7 @@ public:
 
     bool StartPlayback(std::unique_ptr<IAudioStream> audioStream) override
     {
+        StopPlayback();
         bool result;
         rtos_lockMutex(&_mutex);
         {
@@ -36,12 +37,10 @@ public:
 
     void StopPlayback() override
     {
-        rtos_lockMutex(&_mutex);
-        {
-            StopPlaybackIntern();
-        }
-        rtos_unlockMutex(&_mutex);
+        StopPlaybackIntern();
     }
+
+    void SetVolume(unsigned percent) override { _volumePercent = percent > 100 ? 100 : percent; }
 
 private:
     struct alignas(32) SoundStartCmdList
@@ -92,6 +91,7 @@ private:
     rtos_mutex_t _mutex;
     rtos_thread_t _thread;
     rtos_event_t _event;
+    volatile unsigned _volumePercent = 100;
     volatile bool _isPlaying = false;
     volatile u8 _readBlock = 0;
     volatile u8 _writeBlock = 0;

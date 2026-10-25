@@ -16,6 +16,9 @@
 #include "unknownIcon.h"
 #include "coverflowIcon.h"
 #include "themeIcon.h"
+#include "MusicControlIcons.h"
+#include "core/mini-printf.h"
+#include <algorithm>
 #include "../IRomBrowserController.h"
 #include "gui/input/InputProvider.h"
 #include "themes/material/MaterialColorScheme.h"
@@ -64,8 +67,27 @@ DisplaySettingsBottomSheetView::DisplaySettingsBottomSheetView(
         materialColorScheme))
     , _layoutLabel(Label2DView::CreateShared(64, 16, 25, fontRepository->GetFont(FontType::Regular10)))
     , _sortingLabel(Label2DView::CreateShared(64, 16, 25, fontRepository->GetFont(FontType::Regular10)))
+    , _musicLabel(Label2DView::CreateShared(64, 16, 25, fontRepository->GetFont(FontType::Regular10)))
+    , _musicStatus(Label2DView::CreateShared(224, 16, 64, fontRepository->GetFont(FontType::Regular10)))
     , _materialColorScheme(materialColorScheme)
 {
+    _musicLabel->SetText(u"Musica");
+    AddChildTail(_musicLabel.GetPointer());
+    AddChildTail(_musicStatus.GetPointer());
+    for (auto& button : _musicOptions)
+    {
+        button = IconButton2DView::CreateShared(IconButtonView::Type::Tonal,
+            IconButtonView::State::NoToggle, md::sys::color::surfaceContainerLow, _materialColorScheme);
+        button->SetAction([](IconButtonView* sender, void* arg)
+        {
+            auto self = static_cast<DisplaySettingsBottomSheetView*>(arg);
+            if (sender == self->_musicOptions[0].GetPointer()) self->_viewModel->ToggleMusic();
+            else if (sender == self->_musicOptions[1].GetPointer()) self->_viewModel->ChangeMusicVolume(-10);
+            else if (sender == self->_musicOptions[2].GetPointer()) self->_viewModel->ChangeMusicVolume(10);
+            else self->_viewModel->NextMusic();
+        }, this);
+        AddChildTail(button.GetPointer());
+    }
     _titleLabel->SetText(u"Display Settings");
     AddChildTail(_titleLabel.GetPointer());
 
@@ -154,6 +176,11 @@ void DisplaySettingsBottomSheetView::InitVram(const VramContext& vramContext)
         _layoutOptions[2]->SetIconVramOffset(LoadIcon(*objVramManager, bannerListIconTiles, bannerListIconTilesLen));
         _layoutOptions[3]->SetIconVramOffset(LoadIcon(*objVramManager, coverflowIconTiles, coverflowIconTilesLen));
 
+        _musicOptions[0]->SetIconVramOffset(LoadIcon(*objVramManager, musicIconTiles, musicIconTilesLen));
+        _musicOptions[1]->SetIconVramOffset(LoadIcon(*objVramManager, VolumeDownIcon.data(), sizeof(VolumeDownIcon)));
+        _musicOptions[2]->SetIconVramOffset(LoadIcon(*objVramManager, VolumeUpIcon.data(), sizeof(VolumeUpIcon)));
+        _musicOptions[3]->SetIconVramOffset(LoadIcon(*objVramManager, NextTrackIcon.data(), sizeof(NextTrackIcon)));
+
         // sort options
         _sortOptions[0]->SetIconVramOffset(LoadIcon(*objVramManager, sortNameAscendingIconTiles, sortNameAscendingIconTilesLen));
         _sortOptions[1]->SetIconVramOffset(LoadIcon(*objVramManager, sortNameDescendingIconTiles, sortNameDescendingIconTilesLen));
@@ -165,12 +192,29 @@ void DisplaySettingsBottomSheetView::UpdateLabels()
     _titleLabel->SetPosition(TITLE_LABEL_X, _position.y + TITLE_LABEL_Y);
     _layoutLabel->SetPosition(LAYOUT_LABEL_X, _position.y + LAYOUT_LABEL_Y);
     _sortingLabel->SetPosition(SORTING_LABEL_X, _position.y + SORTING_LABEL_Y);
+    _musicLabel->SetPosition(20, _position.y + 110);
+    _musicStatus->SetPosition(20, _position.y + 140);
 }
 
 void DisplaySettingsBottomSheetView::Update()
 {
     BottomSheetView::Update();
     _themeButton->SetPosition(THEME_BUTTON_X, _position.y + THEME_BUTTON_Y);
+    for (unsigned i = 0; i < _musicOptions.size(); ++i)
+        _musicOptions[i]->SetPosition(70 + i * 32, _position.y + 102);
+    _musicOptions[0]->SetState(_viewModel->IsMusicEnabled()
+        ? IconButtonView::State::ToggleSelected : IconButtonView::State::ToggleUnselected);
+    char status[65];
+    if (_viewModel->GetMusicNotice()[0])
+        StringUtil::Copy(status, _viewModel->GetMusicNotice(), sizeof(status));
+    else
+        mini_snprintf(status, sizeof(status), "%s %u%% | X: favorito",
+            _viewModel->IsMusicEnabled() ? "Ligada" : "Desligada", _viewModel->GetMusicVolume());
+    if (strcmp(status, _musicStatusText) != 0)
+    {
+        _musicStatusText = status;
+        _musicStatus->SetText(status);
+    }
     UpdateLabels();
     auto selectedDisplayMode = _viewModel->GetRomBrowserDisplayMode();
     int x = 70;
@@ -209,6 +253,10 @@ void DisplaySettingsBottomSheetView::Draw(GraphicsContext& graphicsContext)
         _layoutLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
         _sortingLabel->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
         _sortingLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
+        _musicLabel->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
+        _musicLabel->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
+        _musicStatus->SetBackgroundColor(_materialColorScheme->GetColor(md::sys::color::surfaceContainerLow));
+        _musicStatus->SetForegroundColor(_materialColorScheme->onSurfaceVariant);
         BottomSheetView::Draw(graphicsContext);
     }
     graphicsContext.SetPriority(oldPrio);
@@ -230,73 +278,25 @@ SharedPtr<View> DisplaySettingsBottomSheetView::MoveFocus(const SharedPtr<View>&
     FocusMoveDirection direction, View* source)
 {
     if (currentFocus.GetPointer() == _themeButton.GetPointer())
-    {
-        if (direction == FocusMoveDirection::Down)
+        return direction == FocusMoveDirection::Down ? _layoutOptions[0] : SharedPtr<View>(nullptr);
+    const SharedPtr<IconButton2DView>* rows[] = {
+        _layoutOptions.data(), _sortOptions.data(), _musicOptions.data()
+    };
+    const int counts[] = {4, 2, 4};
+    for (int row = 0; row < 3; ++row)
+        for (int col = 0; col < counts[row]; ++col)
         {
-            return _layoutOptions[0];
-        }
-        else
-        {
+            if (currentFocus.GetPointer() != rows[row][col].GetPointer()) continue;
+            if (direction == FocusMoveDirection::Left)
+                return rows[row][(col + counts[row] - 1) % counts[row]];
+            if (direction == FocusMoveDirection::Right)
+                return rows[row][(col + 1) % counts[row]];
+            if (direction == FocusMoveDirection::Up)
+                return row == 0 ? _themeButton : rows[row - 1][std::min(col, counts[row - 1] - 1)];
+            if (direction == FocusMoveDirection::Down && row < 2)
+                return rows[row + 1][std::min(col, counts[row + 1] - 1)];
             return nullptr;
         }
-    }
-
-    int idx = 0;
-    for (auto& layoutOption : _layoutOptions)
-    {
-        if (currentFocus.GetPointer() == layoutOption.GetPointer())
-        {
-            if (direction == FocusMoveDirection::Left)
-            {
-                if (--idx < 0)
-                    idx += _layoutOptions.size();
-                return _layoutOptions[idx];
-            }
-            else if (direction == FocusMoveDirection::Right)
-            {
-                if (++idx >= (int)_layoutOptions.size())
-                    idx = 0;
-                return _layoutOptions[idx];
-            }
-            else if (direction == FocusMoveDirection::Up)
-            {
-                return _themeButton;
-            }
-            else //if (direction == FocusMoveDirection::Down)
-            {
-                if (idx >= (int)_sortOptions.size())
-                    idx = _sortOptions.size() - 1;
-                return _sortOptions[idx];
-            }
-        }
-        idx++;
-    }
-    idx = 0;
-    for (auto& sortOption : _sortOptions)
-    {
-        if (currentFocus.GetPointer() == sortOption.GetPointer())
-        {
-            if (direction == FocusMoveDirection::Left)
-            {
-                if (--idx < 0)
-                    idx += _sortOptions.size();
-                return _sortOptions[idx];
-            }
-            else if (direction == FocusMoveDirection::Right)
-            {
-                if (++idx >= (int)_sortOptions.size())
-                    idx = 0;
-                return _sortOptions[idx];
-            }
-            else if (direction == FocusMoveDirection::Up)
-            {
-                if (idx >= (int)_layoutOptions.size())
-                    idx = _layoutOptions.size() - 1;
-                return _layoutOptions[idx];
-            }
-        }
-        idx++;
-    }
     return nullptr;
 }
 
@@ -304,6 +304,7 @@ void DisplaySettingsBottomSheetView::SetGraphics(
     const IconButton2DView::VramToken& iconButtonVramToken)
 {
     _themeButton->SetGraphics(iconButtonVramToken);
+    for (auto& button : _musicOptions) button->SetGraphics(iconButtonVramToken);
     for (auto& layoutOption : _layoutOptions)
     {
         layoutOption->SetGraphics(iconButtonVramToken);

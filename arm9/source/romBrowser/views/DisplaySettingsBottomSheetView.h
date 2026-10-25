@@ -38,6 +38,10 @@ private:
     SharedPtr<IconButton2DView> _themeButton;
     SharedPtr<Label2DView> _layoutLabel;
     SharedPtr<Label2DView> _sortingLabel;
+    SharedPtr<Label2DView> _musicLabel;
+    SharedPtr<Label2DView> _musicStatus;
+    String<char, 64> _musicStatusText;
+    std::array<SharedPtr<IconButton2DView>, 4> _musicOptions;
 
     std::array<SharedPtr<IconButton2DView>, 4> _layoutOptions;
     std::array<SharedPtr<IconButton2DView>, /*3*/2> _sortOptions;

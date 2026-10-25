@@ -1,0 +1,12 @@
+name: Favorites and music tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  preferences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test favorites persistence, settings compatibility, volume and focus
+        run: python3 tests/test_preferences.py

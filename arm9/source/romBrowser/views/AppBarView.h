@@ -19,6 +19,8 @@ public:
         _buttons[button]->SetIconVramOffset(vramOffset);
     }
 
+    void SetButtonState(int button, IconButtonView::State state) { _buttons[button]->SetState(state); }
+
     void SetButtonAction(int button, IconButtonView::button_action_t action, void* arg)
     {
         _buttons[button]->SetAction(action, arg);

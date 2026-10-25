@@ -5,6 +5,7 @@
 #include <libtwl/rtos/rtosIrq.h>
 #include "ipcChannels.h"
 #include "AudioStreamPlayer.h"
+#include "AudioVolume.h"
 
 /// @brief Hardware timer used for tracking audio blocks.
 #define AUDIO_STREAM_PLAYER_TIMER           3
@@ -28,9 +29,6 @@ AudioStreamPlayer::AudioStreamPlayer()
 
 bool AudioStreamPlayer::StartPlaybackIntern(std::unique_ptr<IAudioStream> audioStream)
 {
-    if (_isPlaying)
-        StopPlaybackIntern();
-
     _audioStream = std::move(audioStream);
 
     // fill buffer
@@ -135,6 +133,12 @@ void AudioStreamPlayer::FillRingBlock(u32 block)
 
     _audioStream->ReadSamples(blockPtrL, blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES);
 
-    DC_FlushRange(&blockPtrL, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
-    DC_FlushRange(&blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
+    const unsigned volume = _volumePercent;
+    for (unsigned i = 0; i < AUDIO_STREAM_PLAYER_BLOCK_SAMPLES; ++i)
+    {
+        blockPtrL[i] = ScaleMusicSample(blockPtrL[i], volume);
+        blockPtrR[i] = ScaleMusicSample(blockPtrR[i], volume);
+    }
+    DC_FlushRange(blockPtrL, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
+    DC_FlushRange(blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
 }

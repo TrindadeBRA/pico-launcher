@@ -38,6 +38,13 @@ public:
         }
     }
 
+    bool IsMusicEnabled() const { return _romBrowserController->IsMusicEnabled(); }
+    unsigned GetMusicVolume() const { return _romBrowserController->GetMusicVolume(); }
+    const char* GetMusicNotice() const { return _romBrowserController->GetMusicNotice(); }
+    void ToggleMusic() { _romBrowserController->ToggleMusic(); }
+    void ChangeMusicVolume(int amount) { _romBrowserController->ChangeMusicVolume(amount); }
+    void NextMusic() { _romBrowserController->NextMusic(); }
+
     void Close()
     {
         _romBrowserController->HideDisplaySettings();

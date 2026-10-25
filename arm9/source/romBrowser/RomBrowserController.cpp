@@ -1,5 +1,7 @@
 #include "common.h"
 #include <array>
+#include <algorithm>
+#include "bgm/AudioVolume.h"
 #include "picoLoaderBootstrap.h"
 #include "PicoLoaderProcess.h"
 #include "settings/SettingsProcess.h"
@@ -14,8 +16,9 @@
 
 RomBrowserController::RomBrowserController(
     IAppSettingsService* appSettingsService, TaskQueueBase* ioTaskQueue,
-    TaskQueueBase* bgTaskQueue)
-    : _appSettingsService(appSettingsService)
+    TaskQueueBase* bgTaskQueue, IBgmService* bgmService)
+    : _bgmService(bgmService)
+    , _appSettingsService(appSettingsService)
     , _ioTaskQueue(ioTaskQueue), _bgTaskQueue(bgTaskQueue)
     , _fileTypeProvider(appSettingsService->GetAppSettings()) { }
 
@@ -63,6 +66,7 @@ void RomBrowserController::HideDisplaySettings()
 
 void RomBrowserController::GotoSettingsScreen()
 {
+    HideDisplaySettings();
     _stateMachine.Fire(RomBrowserStateTrigger::GotoSettingsScreen);
 }
 
@@ -76,6 +80,12 @@ void RomBrowserController::SetRomBrowserDisplaySettings(
 
 void RomBrowserController::Update()
 {
+    if (_musicTaskPending && _musicTask.GetTask().IsCompleted())
+    {
+        _musicTask.Dispose();
+        _musicTaskPending = false;
+        _musicNotice = _musicTaskSuccess ? "" : "Sem faixa BCSTM valida";
+    }
     _stateMachine.Update();
     if (_stateMachine.HasStateChanged())
     {
@@ -146,7 +156,9 @@ void RomBrowserController::HandleTrigger()
 void RomBrowserController::HandleNavigateTrigger()
 {
     LOG_DEBUG("RomBrowserStateTrigger::Navigate\n");
-    _navigateTask = _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
+    auto favoritePaths = _favoritesOnly ? _favorites.GetFavorites().GetPaths() : std::vector<std::string>{};
+    const bool favoritesOnly = _favoritesOnly;
+    _navigateTask = _ioTaskQueue->Enqueue([this, favoritePaths = std::move(favoritePaths), favoritesOnly] (const vu8& cancelRequested)
     {
         if (!_coverRepository)
         {
@@ -190,7 +202,8 @@ void RomBrowserController::HandleNavigateTrigger()
         }
         f_chdir(_navigatePath);
         SdFolderFactory sdFolderFactory { &_fileTypeProvider };
-        _newSdFolder = sdFolderFactory.CreateFromPath(".");
+        _newSdFolder = favoritesOnly ? sdFolderFactory.CreateFromFiles(favoritePaths)
+                                    : sdFolderFactory.CreateFromPath(".");
         u64 endTick = gTickCounter.GetValue();
         LOG_DEBUG("Loading files in folder took: %d us\n", (u32)TickCounter::TicksToMicroSeconds(endTick - startTick));
         return TaskResult<void>::Completed();
@@ -230,13 +243,8 @@ void RomBrowserController::HandleGotoSettingsScreenTrigger()
 
 void RomBrowserController::UpdateLastUsedFilepath()
 {
-    f_getcwd(_navigatePath, sizeof(_navigatePath) / sizeof(_navigatePath[0]));
-    int idx = strlcat(_navigatePath, "/", sizeof(_navigatePath));
-    if (_navigatePath[idx - 2] == '/')
-    {
-        _navigatePath[idx - 1] = 0;
-    }
-    strlcat(_navigatePath, _triggerFileInfo.GetFileName(), sizeof(_navigatePath));
+    const auto path = GetFilePath(_triggerFileInfo);
+    StringUtil::Copy(_navigatePath, path.c_str(), sizeof(_navigatePath));
     _appSettingsService->GetAppSettings().lastUsedFilePath = _navigatePath;
     _appSettingsService->Save();
 }
@@ -262,4 +270,88 @@ void RomBrowserController::LoadCheats() const
     auto cheats = _cheatRepository->GetCheatsForGame(_triggerFileInfo.GetFastFileRef());
     auto cheatData = PicoLoaderCheatDataFactory().CreateCheatData(cheats);
     pload_setCheatData(cheatData);
+}
+
+std::string RomBrowserController::GetFilePath(const FileInfo& file) const
+{
+    if (file.GetAbsolutePath()) return file.GetAbsolutePath();
+    char cwd[256];
+    if (f_getcwd(cwd, sizeof(cwd)) != FR_OK) return {};
+    std::string path(cwd);
+    if (path.back() != '/') path += '/';
+    path += file.GetFileName();
+    return path;
+}
+
+bool RomBrowserController::IsFavorite(const FileInfo& file) const
+{
+    return _favorites.GetFavorites().Contains(GetFilePath(file).c_str());
+}
+
+void RomBrowserController::ToggleFavorite(const FileInfo& file)
+{
+    if (_stateMachine.GetCurrentState() != RomBrowserState::Browser
+        || file.GetFileType()->GetClassification() != FileTypeClassification::Game) return;
+    const auto path = GetFilePath(file);
+    if (!_favorites.Toggle(path.c_str()))
+    {
+        _favoriteNotice = "Falha ao salvar favoritos";
+        return;
+    }
+    _favoriteNotice = "";
+    if (_favoritesOnly) NavigateToPath(".");
+}
+
+void RomBrowserController::ToggleFavoritesView()
+{
+    if (_stateMachine.GetCurrentState() != RomBrowserState::Browser) return;
+    _favoritesOnly = !_favoritesOnly;
+    NavigateToPath(".");
+}
+
+void RomBrowserController::NavigateUp()
+{
+    if (_favoritesOnly)
+    {
+        _favoritesOnly = false;
+        NavigateToPath(".");
+    }
+    else NavigateToPath("..");
+}
+
+void RomBrowserController::QueueMusicChange(bool next)
+{
+    if (_musicTaskPending) return;
+    _musicNotice = "Carregando...";
+    _musicTaskPending = true;
+    _musicTask = _ioTaskQueue->Enqueue([this, next](const vu8& cancelRequested)
+    {
+        if (!IsMusicEnabled()) { _bgmService->StopBgm(); _musicTaskSuccess = true; }
+        else if (next) _musicTaskSuccess = _bgmService->NextBgm();
+        else _musicTaskSuccess = _bgmService->StartBgmFromConfig();
+        return TaskResult<void>::Completed();
+    });
+}
+
+void RomBrowserController::ToggleMusic()
+{
+    if (_musicTaskPending) return;
+    auto& settings = _appSettingsService->GetAppSettings();
+    settings.musicEnabled = !settings.musicEnabled;
+    _saveSettingsPending = true;
+    QueueMusicChange(false);
+}
+
+void RomBrowserController::ChangeMusicVolume(int amount)
+{
+    auto& settings = _appSettingsService->GetAppSettings();
+    settings.musicVolume = ClampMusicVolume(static_cast<int>(settings.musicVolume) + amount);
+    _bgmService->SetVolume(settings.musicVolume);
+    _saveSettingsPending = true;
+}
+
+void RomBrowserController::NextMusic()
+{
+    if (IsMusicEnabled()) QueueMusicChange(true);
+    else _musicNotice = "Ative a musica primeiro";
 }

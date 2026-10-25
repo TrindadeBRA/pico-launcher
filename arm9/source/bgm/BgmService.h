@@ -18,11 +18,15 @@ public:
         , _randomGenerator(randomGenerator) { }
 
     bool StartBgm(const TCHAR* filePath) override;
-    void StartBgmFromConfig() override;
+    bool StartBgmFromConfig() override;
     void StopBgm() override;
+    void SetVolume(unsigned percent) override { _audioStreamPlayer->SetVolume(percent); }
+    bool NextBgm() override;
 
 private:
     std::unique_ptr<IAudioStreamPlayer> _audioStreamPlayer;
     IAppSettingsService& _appSettingsService;
     RandomGenerator& _randomGenerator;
+    String<char, 256> _currentTrack;
+    bool PlayFromTheme(bool next);
 };
